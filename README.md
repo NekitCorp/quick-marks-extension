@@ -18,3 +18,9 @@ With QuickMarks, you can instantly find bookmarks right from Chrome’s omnibox 
 
 1. Go to the `Manage Extensions` page through the extensions icon in the menu bar or copy and navigate to `chrome://extensions/`.
 2. In the left menu, select `Keyboard shortcuts`, find the `QuickMarks` extension, and set your own shortcut.
+
+## Prepare package
+
+```sh
+rm -f package.zip && zip -r package.zip images popup background.js manifest.json
+```
