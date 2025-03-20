@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "types": ["chrome"],
+    "target": "ESNext",
+    "module": "ESNext"
+  }
+}

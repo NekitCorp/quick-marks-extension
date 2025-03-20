@@ -1,0 +1,6 @@
+{
+  "name": "quick-marks-extension",
+  "devDependencies": {
+    "@types/chrome": "^0.0.309"
+  }
+}
