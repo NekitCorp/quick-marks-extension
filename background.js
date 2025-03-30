@@ -1,5 +1,20 @@
+import { escapePredefinedEntities, getBookmarks, pluralize } from "./common.js";
+import Fuse from "./lib/fuse.js";
+
 chrome.omnibox.onInputChanged.addListener(onInputChanged);
 chrome.omnibox.onInputEntered.addListener(onInputEntered);
+chrome.bookmarks.onChanged.addListener(updateBookmarks);
+chrome.bookmarks.onCreated.addListener(updateBookmarks);
+chrome.bookmarks.onRemoved.addListener(updateBookmarks);
+
+/**
+ * Bookmarks global variable.
+ * We should always check if it's null before using it,
+ * because any global variables you set will be lost if the service worker shuts down.
+ * @type {{ title: string, url: string }[] | null}
+ * @see https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle#persist-data
+ */
+let bookmarks = null;
 
 /**
  * @type {Parameters<chrome.omnibox.OmniboxInputChangedEvent['addListener']>[0]}
@@ -12,9 +27,14 @@ async function onInputChanged(text, suggest) {
     return;
   }
 
-  const bookmarks = await chrome.bookmarks.search(text);
+  if (!bookmarks) {
+    await updateBookmarks();
+  }
 
-  if (bookmarks.length === 0) {
+  const fuse = new Fuse(bookmarks, { keys: ["title", "url"] });
+  const results = fuse.search(text);
+
+  if (results.length === 0) {
     await chrome.omnibox.setDefaultSuggestion({
       description: "⛔ No bookmarks found. Press Enter to search on Google.",
     });
@@ -22,14 +42,12 @@ async function onInputChanged(text, suggest) {
     return;
   }
 
-  const suggestions = bookmarks
-    .filter((bookmark) => bookmark.url && bookmark.title)
-    .map((bookmark) => ({
-      content: bookmark.url,
-      description: `<match>${escapePredefinedEntities(
-        bookmark.title
-      )}</match> - <url>${escapePredefinedEntities(bookmark.url)}</url>`,
-    }));
+  const suggestions = results.map(({ item }) => ({
+    content: item.url,
+    description: `<match>${escapePredefinedEntities(
+      item.title
+    )}</match> - <url>${escapePredefinedEntities(item.url)}</url>`,
+  }));
 
   await chrome.omnibox.setDefaultSuggestion({
     description: `✅ Found ${pluralize(
@@ -56,20 +74,6 @@ async function onInputEntered(text) {
   await chrome.tabs.create({ url });
 }
 
-/**
- * You must escape the five predefined entities to display them as text.
- * @see https://developer.chrome.com/docs/extensions/reference/api/omnibox#type-SuggestResult
- * @see https://stackoverflow.com/a/1091953/89484
- */
-function escapePredefinedEntities(text) {
-  return text
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/&/g, "&amp;");
-}
-
-function pluralize(count, noun) {
-  return `${count} ${noun}${count !== 1 ? "s" : ""}`;
+async function updateBookmarks() {
+  bookmarks = await getBookmarks();
 }

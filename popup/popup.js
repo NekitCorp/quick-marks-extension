@@ -1,3 +1,6 @@
+import { faviconURL, getBookmarks } from "../common.js";
+import Fuse from "../lib/fuse.js";
+
 // DOM elements
 
 const template = /** @type {HTMLTemplateElement} */ (
@@ -12,9 +15,16 @@ const results = /** @type {HTMLUListElement} */ (
 
 // initialize
 
+/** @type {{ title: string, url: string }[]} */
+let bookmarks = [];
 let selected = null;
-search.focus();
-updateSuggestions({});
+
+getBookmarks().then((result) => {
+  bookmarks = result;
+  search.disabled = false;
+  search.focus();
+  updateSuggestions("");
+});
 
 // event listeners
 
@@ -29,7 +39,7 @@ search.addEventListener("keydown", handleKeydown);
 async function handleInput(e) {
   const target = /** @type {HTMLInputElement} */ (e.target);
   const text = target.value;
-  await updateSuggestions(text || {});
+  await updateSuggestions(text);
 }
 
 /**
@@ -60,12 +70,21 @@ function handleKeydown(e) {
   }
 }
 
-async function updateSuggestions(query) {
-  const bookmarks = await chrome.bookmarks.search(query);
+/**
+ * @param {string} text
+ */
+async function updateSuggestions(text) {
+  let suggestions;
 
-  const suggestions = bookmarks
-    .filter((bookmark) => bookmark.url && bookmark.title)
-    .map((bookmark) => createSuggestionElement(bookmark));
+  if (text) {
+    const fuse = new Fuse(bookmarks, { keys: ["title", "url"] });
+    const results = fuse.search(text);
+    suggestions = results.map(({ item }) => createSuggestionElement(item));
+  } else {
+    suggestions = bookmarks.map((bookmark) =>
+      createSuggestionElement(bookmark)
+    );
+  }
 
   if (suggestions.length > 0) {
     selected = suggestions[0].firstElementChild;
@@ -77,7 +96,7 @@ async function updateSuggestions(query) {
 
 /**
  * Build a suggestion element for a bookmark.
- * @param {chrome.bookmarks.BookmarkTreeNode} bookmark
+ * @param {{ title: string, url: string }} bookmark
  * @returns {HTMLLIElement}
  */
 function createSuggestionElement(bookmark) {
@@ -92,16 +111,4 @@ function createSuggestionElement(bookmark) {
   });
 
   return li;
-}
-
-/**
- * Get the URL of the favicon for a page.
- * @param {string} pageUrl
- * @returns {string}
- */
-function faviconURL(pageUrl) {
-  const url = new URL(chrome.runtime.getURL("/_favicon/"));
-  url.searchParams.set("pageUrl", pageUrl);
-  url.searchParams.set("size", "32");
-  return url.toString();
 }

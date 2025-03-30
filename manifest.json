@@ -5,7 +5,7 @@
 
   "name": "QuickMarks",
   "description": "Quickly search your bookmarks",
-  "version": "1.0.0",
+  "version": "1.1.0",
 
   "background": {
     "service_worker": "background.js",
